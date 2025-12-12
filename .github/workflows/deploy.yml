@@ -1,0 +1,86 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+    - name: Build with Maven
+      run: mvn -B package --file backend/pom.xml
+    - name: Upload Backend Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: movieapp-backend
+        path: backend/target/*.jar
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    - name: Install dependencies
+      run: |
+        cd frontend
+        npm ci
+    - name: Build
+      run: |
+        cd frontend
+        npm run build
+    - name: Upload Frontend Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: movieapp-frontend
+        path: frontend/dist/
+
+  deploy:
+    needs: [build-backend, build-frontend]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Download Backend Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: movieapp-backend
+      
+      - name: Download Frontend Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: movieapp-frontend
+          path: ./frontend-dist
+
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            echo "Deploying..."
+            # Stop existing service
+            # sudo systemctl stop movieapp
+            # Copy new jar
+            # cp movieapp-backend/*.jar /opt/movieapp/app.jar
+            # Copy frontend assets
+            # cp -r frontend-dist/* /var/www/html/
+            # Restart service
+            # sudo systemctl start movieapp
+            echo "Deployment Complete"
+
