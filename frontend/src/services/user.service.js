@@ -1,7 +1,7 @@
 import axios from "axios";
 import authHeader from "./auth-header";
 
-const API_URL = "http://localhost:8080/api/movies/";
+const API_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api/") + "movies/";
 
 const searchMovies = (title) => {
     return axios.get(API_URL + "search", { headers: authHeader(), params: { title } });
